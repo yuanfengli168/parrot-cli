@@ -70,3 +70,54 @@ fn format_markdown(transcript: &str, tldr: &str, actions: &str, decisions: &str)
         tldr, actions, decisions, transcript
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn notebooklm_format() {
+        let result = format_notebooklm("transcript text", "tldr here", "actions here", "decisions here");
+        assert!(result.contains("# Meeting Transcript — NotebookLM Import"));
+        assert!(result.contains("## TLDR\n\ntldr here"));
+        assert!(result.contains("## Action Items\n\nactions here"));
+        assert!(result.contains("## Decisions\n\ndecisions here"));
+        assert!(result.contains("## Full Transcript\n\ntranscript text"));
+    }
+
+    #[test]
+    fn obsidian_format() {
+        let result = format_obsidian("transcript text", "tldr", "actions", "decisions");
+        assert!(result.contains("---\ntags: [meeting, transcript]\n---"));
+        assert!(result.contains("# Meeting Notes"));
+        assert!(result.contains("> tldr"));
+        assert!(result.contains("## Action Items\nactions"));
+        assert!(result.contains("## Decisions\ndecisions"));
+    }
+
+    #[test]
+    fn markdown_format() {
+        let result = format_markdown("transcript text", "tldr", "actions", "decisions");
+        assert!(result.contains("# Meeting Summary"));
+        assert!(result.contains("## TLDR\n\ntldr"));
+        assert!(result.contains("## Action Items\n\nactions"));
+        assert!(result.contains("## Decisions\n\ndecisions"));
+        assert!(result.contains("## Full Transcript\n\ntranscript text"));
+    }
+
+    #[test]
+    fn read_input_from_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.txt");
+        std::fs::write(&file, "hello from file").unwrap();
+        let result = read_input(file.to_str().unwrap()).unwrap();
+        assert_eq!(result, "hello from file");
+    }
+
+    #[test]
+    fn read_input_as_raw_text() {
+        // Non-existent paths are treated as raw text
+        let result = read_input("just some raw text that isn't a file").unwrap();
+        assert_eq!(result, "just some raw text that isn't a file");
+    }
+}

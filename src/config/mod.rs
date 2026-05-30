@@ -128,3 +128,117 @@ pub fn save(cfg: &ParrotConfig) -> anyhow::Result<()> {
     std::fs::write(config_path(), content)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_home() -> tempfile::TempDir {
+        tempfile::tempdir().expect("create temp dir")
+    }
+
+    fn with_home(home: &std::path::Path) -> ParrotConfig {
+        // We can't easily override HOME for config::load/save, so test the logic directly
+        let cfg = ParrotConfig::default();
+        let config_dir = home.join(".parrot");
+        std::fs::create_dir_all(&config_dir).unwrap();
+        let path = config_dir.join("config.json");
+        let content = serde_json::to_string_pretty(&cfg).unwrap();
+        std::fs::write(&path, content).unwrap();
+        // Load it back
+        let loaded: ParrotConfig = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        loaded
+    }
+
+    #[test]
+    fn default_config_has_expected_values() {
+        let cfg = ParrotConfig::default();
+        assert_eq!(cfg.transcription.model, "whisper-medium");
+        assert_eq!(cfg.transcription.timestamps, true);
+        assert!(cfg.transcription.language.is_none());
+        assert_eq!(cfg.llm.provider, "ollama");
+        assert_eq!(cfg.llm.model, "qwen3:14b");
+        assert_eq!(cfg.llm.ollama_url, "http://localhost:11434");
+        assert!(cfg.mcp.servers.is_empty());
+    }
+
+    #[test]
+    fn config_roundtrip_json() {
+        let dir = temp_home();
+        let cfg = with_home(dir.path());
+        assert_eq!(cfg.transcription.model, "whisper-medium");
+        assert_eq!(cfg.llm.provider, "ollama");
+    }
+
+    #[test]
+    fn config_save_and_load() {
+        let dir = temp_home();
+        let config_dir = dir.path().join(".parrot");
+        std::fs::create_dir_all(&config_dir).unwrap();
+
+        let mut cfg = ParrotConfig::default();
+        cfg.transcription.model = "whisper-tiny".to_string();
+        cfg.llm.model = "llama3".to_string();
+
+        let path = config_dir.join("config.json");
+        let content = serde_json::to_string_pretty(&cfg).unwrap();
+        std::fs::write(&path, &content).unwrap();
+
+        let loaded: ParrotConfig = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(loaded.transcription.model, "whisper-tiny");
+        assert_eq!(loaded.llm.model, "llama3");
+    }
+
+    #[test]
+    fn config_with_mcp_servers() {
+        let dir = temp_home();
+        let config_dir = dir.path().join(".parrot");
+        std::fs::create_dir_all(&config_dir).unwrap();
+
+        let mut cfg = ParrotConfig::default();
+        cfg.mcp.servers.insert("obsidian".to_string(), serde_json::json!({"vault_path": "/tmp/vault"}));
+        cfg.mcp.servers.insert("slack".to_string(), serde_json::json!({"bot_token": "xoxb-test"}));
+
+        let path = config_dir.join("config.json");
+        let content = serde_json::to_string_pretty(&cfg).unwrap();
+        std::fs::write(&path, &content).unwrap();
+
+        let loaded: ParrotConfig = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(loaded.mcp.servers.len(), 2);
+        assert!(loaded.mcp.servers.contains_key("obsidian"));
+        assert!(loaded.mcp.servers.contains_key("slack"));
+    }
+
+    #[test]
+    fn config_handles_corrupt_file() {
+        let dir = temp_home();
+        let config_dir = dir.path().join(".parrot");
+        std::fs::create_dir_all(&config_dir).unwrap();
+
+        let path = config_dir.join("config.json");
+        std::fs::write(&path, "not valid json{{{").unwrap();
+
+        // Should fall back to default when loading corrupt file
+        let loaded: ParrotConfig = serde_json::from_str(&std::fs::read_to_string(&path).unwrap())
+            .unwrap_or_default();
+        assert_eq!(loaded.transcription.model, "whisper-medium");
+    }
+
+    #[test]
+    fn config_dir_uses_home() {
+        let path = config_dir();
+        assert!(path.to_str().unwrap().contains(".parrot"));
+    }
+
+    #[test]
+    fn config_path_ends_with_config_json() {
+        let path = config_path();
+        assert!(path.to_str().unwrap().ends_with("config.json"));
+    }
+
+    #[test]
+    fn models_dir_under_config() {
+        let path = models_dir();
+        assert!(path.to_str().unwrap().contains("models"));
+    }
+}

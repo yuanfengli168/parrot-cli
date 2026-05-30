@@ -117,3 +117,51 @@ pub async fn set_default(name: &str) -> Result<()> {
     println!("✅ Default model set to: {}", name);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn model_aliases_contain_all_known_models() {
+        let aliases = model_aliases();
+        assert!(aliases.contains_key("whisper-large-v3"));
+        assert!(aliases.contains_key("whisper-medium"));
+        assert!(aliases.contains_key("whisper-small"));
+        assert!(aliases.contains_key("whisper-tiny"));
+        assert_eq!(aliases.len(), 4);
+    }
+
+    #[test]
+    fn model_aliases_point_to_hf_urls() {
+        let aliases = model_aliases();
+        for (name, url) in &aliases {
+            assert!(url.starts_with("https://huggingface.co/"), "{} URL should be from HuggingFace", name);
+            assert!(url.ends_with("/model.bin"), "{} URL should end with model.bin", name);
+            assert!(url.contains(name), "{} URL should contain model name", name);
+        }
+    }
+
+    #[test]
+    fn model_sizes_contain_all_models() {
+        let sizes = model_sizes();
+        assert_eq!(sizes.len(), 4);
+        assert!(sizes.contains_key("whisper-large-v3"));
+        assert!(sizes.get("whisper-large-v3").unwrap().contains("3GB"));
+        assert!(sizes.get("whisper-tiny").unwrap().contains("75MB"));
+    }
+
+    #[test]
+    fn model_aliases_urls_are_valid() {
+        let aliases = model_aliases();
+        // Verify specific URLs
+        assert_eq!(*aliases.get("whisper-large-v3").unwrap(),
+            "https://huggingface.co/openai/whisper-large-v3/resolve/main/model.bin");
+        assert_eq!(*aliases.get("whisper-medium").unwrap(),
+            "https://huggingface.co/openai/whisper-medium/resolve/main/model.bin");
+        assert_eq!(*aliases.get("whisper-small").unwrap(),
+            "https://huggingface.co/openai/whisper-small/resolve/main/model.bin");
+        assert_eq!(*aliases.get("whisper-tiny").unwrap(),
+            "https://huggingface.co/openai/whisper-tiny/resolve/main/model.bin");
+    }
+}

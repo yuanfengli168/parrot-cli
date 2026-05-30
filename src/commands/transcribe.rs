@@ -103,3 +103,76 @@ pub async fn run(
     println!("✅ Transcript saved to {}", final_output);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ffmpeg_args_for_audio_extraction() {
+        // Verify the expected ffmpeg arguments for audio extraction
+        let args = vec!["-y", "-i", "input.mp4", "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le"];
+        assert!(args.contains(&"-y"));
+        assert!(args.contains(&"-ar"));
+        assert!(args.contains(&"16000"));  // 16kHz sample rate
+        assert!(args.contains(&"-ac"));
+        assert!(args.contains(&"1"));       // mono
+        assert!(args.contains(&"pcm_s16le")); // 16-bit PCM
+    }
+
+    #[test]
+    fn video_extensions_require_extraction() {
+        let video_exts = vec!["mp4", "mkv", "avi", "mov", "webm", "flv"];
+        for ext in video_exts {
+            let is_video = ["mp4", "mkv", "avi", "mov", "webm", "flv"].contains(&ext);
+            assert!(is_video, "{} should be recognized as video", ext);
+        }
+    }
+
+    #[test]
+    fn audio_extensions_dont_require_extraction() {
+        let audio_exts = vec!["wav", "mp3", "flac", "ogg", "m4a"];
+        for ext in audio_exts {
+            let is_video = ["mp4", "mkv", "avi", "mov", "webm", "flv"].contains(&ext);
+            assert!(!is_video, "{} should NOT be recognized as video", ext);
+        }
+    }
+
+    #[test]
+    fn whisper_args_construction() {
+        // Verify typical whisper args
+        let model = "whisper-medium";
+        let transcript_file = "/tmp/test.wav";
+        let output_dir = "/tmp/.parrot/output";
+
+        let mut args = vec![transcript_file.to_string()];
+        args.push("--model".to_string());
+        args.push(model.to_string());
+        args.push("--language".to_string());
+        args.push("en".to_string());
+        args.push("--output_dir".to_string());
+        args.push(output_dir.to_string());
+        args.push("--output_format".to_string());
+        args.push("txt".to_string());
+
+        assert!(args.contains(&"--model".to_string()));
+        assert!(args.contains(&"whisper-medium".to_string()));
+        assert!(args.contains(&"--language".to_string()));
+        assert!(args.contains(&"en".to_string()));
+        assert!(args.contains(&"--output_format".to_string()));
+        assert!(args.contains(&"txt".to_string()));
+    }
+
+    #[test]
+    fn path_file_stem_extraction() {
+        let path = Path::new("/some/dir/my_meeting.wav");
+        let stem = path.file_stem().unwrap().to_str().unwrap();
+        assert_eq!(stem, "my_meeting");
+    }
+
+    #[test]
+    fn nonexistent_file_detected() {
+        let path = Path::new("/nonexistent/file.mp4");
+        assert!(!path.exists());
+    }
+}

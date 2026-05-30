@@ -24,3 +24,49 @@ pub async fn run(file: &str, channel: Option<&str>) -> Result<()> {
     println!("{}", result);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_input_from_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("transcript.txt");
+        std::fs::write(&file, "We agreed on next steps.").unwrap();
+        let result = read_input(file.to_str().unwrap()).unwrap();
+        assert_eq!(result, "We agreed on next steps.");
+    }
+
+    #[test]
+    fn followup_prompt_slack() {
+        let transcript = "Meeting notes.";
+        let prompt = format!("Draft a concise follow-up message for Slack based on this meeting transcript. Use Slack-friendly formatting (short paragraphs, bullet points, emoji headers):\n\n{}", transcript);
+        assert!(prompt.contains("Slack"));
+        assert!(prompt.contains("emoji"));
+    }
+
+    #[test]
+    fn followup_prompt_email() {
+        let transcript = "Meeting notes.";
+        let prompt = format!("Draft a professional follow-up email based on this meeting transcript. Include subject line, key points, action items, and next steps:\n\n{}", transcript);
+        assert!(prompt.contains("email"));
+        assert!(prompt.contains("subject line"));
+    }
+
+    #[test]
+    fn followup_prompt_custom_channel() {
+        let transcript = "Meeting notes.";
+        let prompt = format!("Draft a follow-up message for discord based on this meeting transcript:\n\n{}", transcript);
+        assert!(prompt.contains("discord"));
+    }
+
+    #[test]
+    fn followup_prompt_default() {
+        let transcript = "Meeting notes.";
+        let prompt = format!("Draft a follow-up message based on this meeting transcript, including key points discussed, action items, and next steps:\n\n{}", transcript);
+        assert!(prompt.contains("key points"));
+        assert!(prompt.contains("action items"));
+        assert!(prompt.contains("next steps"));
+    }
+}

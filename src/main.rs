@@ -188,3 +188,223 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use clap::Parser;
+    use super::*;
+
+    #[test]
+    fn parse_transcribe_basic() {
+        let cli = Cli::try_parse_from(["parrot-cli", "transcribe", "meeting.mp4"]).unwrap();
+        match cli.command {
+            Commands::Transcribe { file, model, timestamps, no_timestamps, language, output } => {
+                assert_eq!(file, "meeting.mp4");
+                assert!(model.is_none());
+                assert!(!timestamps);
+                assert!(!no_timestamps);
+                assert!(language.is_none());
+                assert!(output.is_none());
+            }
+            _ => panic!("Expected Transcribe command"),
+        }
+    }
+
+    #[test]
+    fn parse_transcribe_with_options() {
+        let cli = Cli::try_parse_from([
+            "parrot-cli", "transcribe", "meeting.mp4",
+            "--model", "whisper-large-v3",
+            "--timestamps",
+            "--language", "en",
+            "--output", "/tmp/out.txt"
+        ]).unwrap();
+        match cli.command {
+            Commands::Transcribe { file, model, timestamps, no_timestamps, language, output } => {
+                assert_eq!(file, "meeting.mp4");
+                assert_eq!(model.unwrap(), "whisper-large-v3");
+                assert!(timestamps);
+                assert!(!no_timestamps);
+                assert_eq!(language.unwrap(), "en");
+                assert_eq!(output.unwrap(), "/tmp/out.txt");
+            }
+            _ => panic!("Expected Transcribe command"),
+        }
+    }
+
+    #[test]
+    fn parse_transcribe_no_timestamps() {
+        let cli = Cli::try_parse_from(["parrot-cli", "transcribe", "audio.wav", "--no-timestamps"]).unwrap();
+        match cli.command {
+            Commands::Transcribe { no_timestamps, .. } => {
+                assert!(no_timestamps);
+            }
+            _ => panic!("Expected Transcribe command"),
+        }
+    }
+
+    #[test]
+    fn parse_summarize() {
+        let cli = Cli::try_parse_from(["parrot-cli", "summarize", "transcript.txt"]).unwrap();
+        match cli.command {
+            Commands::Summarize { file, detail, sections } => {
+                assert_eq!(file, "transcript.txt");
+                assert!(!detail);
+                assert!(!sections);
+            }
+            _ => panic!("Expected Summarize command"),
+        }
+    }
+
+    #[test]
+    fn parse_summarize_with_flags() {
+        let cli = Cli::try_parse_from(["parrot-cli", "summarize", "transcript.txt", "--detail"]).unwrap();
+        match cli.command {
+            Commands::Summarize { detail, .. } => assert!(detail),
+            _ => panic!("Expected Summarize command"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "summarize", "transcript.txt", "--sections"]).unwrap();
+        match cli.command {
+            Commands::Summarize { sections, .. } => assert!(sections),
+            _ => panic!("Expected Summarize command"),
+        }
+    }
+
+    #[test]
+    fn parse_actions() {
+        let cli = Cli::try_parse_from(["parrot-cli", "actions", "transcript.txt", "--assignee"]).unwrap();
+        match cli.command {
+            Commands::Actions { file, assignee } => {
+                assert_eq!(file, "transcript.txt");
+                assert!(assignee);
+            }
+            _ => panic!("Expected Actions command"),
+        }
+    }
+
+    #[test]
+    fn parse_decisions() {
+        let cli = Cli::try_parse_from(["parrot-cli", "decisions", "transcript.txt"]).unwrap();
+        match cli.command {
+            Commands::Decisions { file } => assert_eq!(file, "transcript.txt"),
+            _ => panic!("Expected Decisions command"),
+        }
+    }
+
+    #[test]
+    fn parse_followup_with_channel() {
+        let cli = Cli::try_parse_from(["parrot-cli", "followup", "transcript.txt", "--channel", "slack"]).unwrap();
+        match cli.command {
+            Commands::Followup { file, channel } => {
+                assert_eq!(file, "transcript.txt");
+                assert_eq!(channel.unwrap(), "slack");
+            }
+            _ => panic!("Expected Followup command"),
+        }
+    }
+
+    #[test]
+    fn parse_doc_default_format() {
+        let cli = Cli::try_parse_from(["parrot-cli", "doc", "transcript.txt"]).unwrap();
+        match cli.command {
+            Commands::Doc { file, format } => {
+                assert_eq!(file, "transcript.txt");
+                assert_eq!(format, "notebooklm"); // default
+            }
+            _ => panic!("Expected Doc command"),
+        }
+    }
+
+    #[test]
+    fn parse_doc_obsidian_format() {
+        let cli = Cli::try_parse_from(["parrot-cli", "doc", "transcript.txt", "--format", "obsidian"]).unwrap();
+        match cli.command {
+            Commands::Doc { format, .. } => assert_eq!(format, "obsidian"),
+            _ => panic!("Expected Doc command"),
+        }
+    }
+
+    #[test]
+    fn parse_digest() {
+        let cli = Cli::try_parse_from(["parrot-cli", "digest", "meeting.mp4", "--format", "markdown"]).unwrap();
+        match cli.command {
+            Commands::Digest { file, format } => {
+                assert_eq!(file, "meeting.mp4");
+                assert_eq!(format, "markdown");
+            }
+            _ => panic!("Expected Digest command"),
+        }
+    }
+
+    #[test]
+    fn parse_model_subcommands() {
+        let cli = Cli::try_parse_from(["parrot-cli", "model", "list"]).unwrap();
+        match cli.command {
+            Commands::Model { command: ModelCommands::List } => {}
+            _ => panic!("Expected Model List command"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "model", "pull", "whisper-medium"]).unwrap();
+        match cli.command {
+            Commands::Model { command: ModelCommands::Pull { name } } => assert_eq!(name, "whisper-medium"),
+            _ => panic!("Expected Model Pull command"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "model", "remove", "whisper-tiny"]).unwrap();
+        match cli.command {
+            Commands::Model { command: ModelCommands::Remove { name } } => assert_eq!(name, "whisper-tiny"),
+            _ => panic!("Expected Model Remove command"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "model", "use", "whisper-large-v3"]).unwrap();
+        match cli.command {
+            Commands::Model { command: ModelCommands::Use { name } } => assert_eq!(name, "whisper-large-v3"),
+            _ => panic!("Expected Model Use command"),
+        }
+    }
+
+    #[test]
+    fn parse_mcp_subcommands() {
+        let cli = Cli::try_parse_from(["parrot-cli", "mcp", "list"]).unwrap();
+        match cli.command {
+            Commands::Mcp { command: McpCommands::List } => {}
+            _ => panic!("Expected Mcp List command"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "mcp", "add", "obsidian"]).unwrap();
+        match cli.command {
+            Commands::Mcp { command: McpCommands::Add { name } } => assert_eq!(name, "obsidian"),
+            _ => panic!("Expected Mcp Add command"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "mcp", "remove", "slack"]).unwrap();
+        match cli.command {
+            Commands::Mcp { command: McpCommands::Remove { name } } => assert_eq!(name, "slack"),
+            _ => panic!("Expected Mcp Remove command"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "mcp", "test", "github"]).unwrap();
+        match cli.command {
+            Commands::Mcp { command: McpCommands::Test { name } } => assert_eq!(name, "github"),
+            _ => panic!("Expected Mcp Test command"),
+        }
+    }
+
+    #[test]
+    fn parse_export() {
+        let cli = Cli::try_parse_from(["parrot-cli", "export", "doc.md", "--to", "obsidian"]).unwrap();
+        match cli.command {
+            Commands::Export { file, to } => {
+                assert_eq!(file, "doc.md");
+                assert_eq!(to, "obsidian");
+            }
+            _ => panic!("Expected Export command"),
+        }
+    }
+
+    #[test]
+    fn parse_invalid_command_fails() {
+        assert!(Cli::try_parse_from(["parrot-cli", "nonexistent"]).is_err());
+    }
+}

@@ -69,3 +69,34 @@ fn format_obsidian(t: &str, s: &str, a: &str, d: &str) -> String {
 fn format_markdown(t: &str, s: &str, a: &str, d: &str) -> String {
     format!("# Meeting Digest\n\n## TLDR\n\n{}\n\n## Action Items\n\n{}\n\n## Decisions\n\n{}\n\n## Full Transcript\n\n{}", s, a, d, t)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn digest_notebooklm_format() {
+        let result = format_notebooklm("transcript", "summary", "actions", "decisions");
+        assert!(result.contains("# Meeting Transcript — NotebookLM Import"));
+        assert!(result.contains("summary"));
+        assert!(result.contains("actions"));
+        assert!(result.contains("decisions"));
+        assert!(result.contains("transcript"));
+    }
+
+    #[test]
+    fn digest_obsidian_format() {
+        let result = format_obsidian("transcript", "summary", "actions", "decisions");
+        assert!(result.contains("tags: [meeting, digest]"));
+        assert!(result.contains("# Meeting Digest"));
+        assert!(result.contains("> summary"));
+    }
+
+    #[test]
+    fn digest_markdown_format() {
+        let result = format_markdown("transcript", "summary", "actions", "decisions");
+        assert!(result.contains("# Meeting Digest"));
+        assert!(result.contains("## TLDR"));
+        assert!(result.contains("summary"));
+    }
+}
