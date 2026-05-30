@@ -84,13 +84,17 @@ fn cli_mcp_list_works() {
 fn cli_mcp_add_and_remove_roundtrip() {
     let dir = tempfile::tempdir().unwrap();
 
-    // Add
+    // Create a fake Obsidian vault
+    let vault_path = dir.path().join("TestVault");
+    std::fs::create_dir_all(vault_path.join(".obsidian")).unwrap();
+
+    // Add with --vault-path (non-interactive)
     let mut cmd = Command::cargo_bin("parrot-cli").unwrap();
     cmd.env("HOME", dir.path().to_str().unwrap())
-        .args(["mcp", "add", "obsidian"])
+        .args(["mcp", "add", "obsidian", "--vault-path", vault_path.to_str().unwrap()])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Added MCP server: obsidian"));
+        .stdout(predicate::str::contains("Obsidian MCP server configured"));
 
     // List should show it
     let mut cmd = Command::cargo_bin("parrot-cli").unwrap();

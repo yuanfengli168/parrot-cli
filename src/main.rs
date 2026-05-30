@@ -133,6 +133,12 @@ enum McpCommands {
     Add {
         /// Server name
         name: String,
+        /// Use advanced mode (e.g. enables MCP protocol for obsidian)
+        #[arg(long)]
+        advanced: bool,
+        /// Vault path (for obsidian, skips interactive prompt)
+        #[arg(long)]
+        vault_path: Option<String>,
     },
     /// Remove an MCP server
     Remove {
@@ -179,7 +185,7 @@ async fn main() -> anyhow::Result<()> {
         },
         Commands::Mcp { command } => match command {
             McpCommands::List => mcp::list().await,
-            McpCommands::Add { name } => mcp::add(&name).await,
+            McpCommands::Add { name, advanced, vault_path } => mcp::add(&name, advanced, vault_path.as_deref()).await,
             McpCommands::Remove { name } => mcp::remove(&name).await,
             McpCommands::Test { name } => mcp::test(&name).await,
         },
@@ -374,8 +380,32 @@ mod tests {
 
         let cli = Cli::try_parse_from(["parrot-cli", "mcp", "add", "obsidian"]).unwrap();
         match cli.command {
-            Commands::Mcp { command: McpCommands::Add { name } } => assert_eq!(name, "obsidian"),
+            Commands::Mcp { command: McpCommands::Add { name, advanced, vault_path } } => {
+                assert_eq!(name, "obsidian");
+                assert!(!advanced);
+                assert!(vault_path.is_none());
+            },
             _ => panic!("Expected Mcp Add command"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "mcp", "add", "obsidian", "--advanced"]).unwrap();
+        match cli.command {
+            Commands::Mcp { command: McpCommands::Add { name, advanced, vault_path } } => {
+                assert_eq!(name, "obsidian");
+                assert!(advanced);
+                assert!(vault_path.is_none());
+            },
+            _ => panic!("Expected Mcp Add command with --advanced"),
+        }
+
+        let cli = Cli::try_parse_from(["parrot-cli", "mcp", "add", "obsidian", "--vault-path", "/my/vault"]).unwrap();
+        match cli.command {
+            Commands::Mcp { command: McpCommands::Add { name, advanced, vault_path } } => {
+                assert_eq!(name, "obsidian");
+                assert!(!advanced);
+                assert_eq!(vault_path.unwrap(), "/my/vault");
+            },
+            _ => panic!("Expected Mcp Add command with --vault-path"),
         }
 
         let cli = Cli::try_parse_from(["parrot-cli", "mcp", "remove", "slack"]).unwrap();

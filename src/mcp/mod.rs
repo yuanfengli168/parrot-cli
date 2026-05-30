@@ -1,4 +1,5 @@
 pub mod notebooklm;
+pub mod obsidian;
 
 use anyhow::Result;
 use serde_json::json;
@@ -10,22 +11,28 @@ fn available_servers() -> Vec<&'static str> {
     vec!["obsidian", "notion", "notebooklm", "slack", "jira", "diffchecker", "google-docs", "email", "github", "todoist", "confluence", "telegram"]
 }
 
-/// Get status string for a server (checks nlm for notebooklm, stub for others)
-fn server_status(name: &str, configured: bool) -> String {
-    if name == "notebooklm" {
-        if !notebooklm::is_nlm_installed() {
-            return "❌ nlm not installed (pip install notebooklm-mcp-cli)".to_string();
+/// Get status string for a server (checks nlm for notebooklm, obsidian vault, stub for others)
+fn server_status(name: &str, server_config: Option<&serde_json::Value>) -> String {
+    match name {
+        "notebooklm" => {
+            if !notebooklm::is_nlm_installed() {
+                return "❌ nlm not installed (pip install notebooklm-mcp-cli)".to_string();
+            }
+            match notebooklm::is_nlm_authenticated() {
+                Ok(true) if server_config.is_some() => "✅ connected".to_string(),
+                Ok(true) => "✅ authenticated".to_string(),
+                Ok(false) => "⚠️  not authenticated (run: nlm login)".to_string(),
+                Err(_) => "❓ could not check auth".to_string(),
+            }
         }
-        match notebooklm::is_nlm_authenticated() {
-            Ok(true) if configured => "✅ connected".to_string(),
-            Ok(true) => "✅ authenticated".to_string(),
-            Ok(false) => "⚠️  not authenticated (run: nlm login)".to_string(),
-            Err(_) => "❓ could not check auth".to_string(),
+        "obsidian" => obsidian::status(server_config),
+        _ => {
+            if server_config.is_some() {
+                "✅ configured".to_string()
+            } else {
+                "⬜ not configured".to_string()
+            }
         }
-    } else if configured {
-        "✅ configured".to_string()
-    } else {
-        "⬜ not configured".to_string()
     }
 }
 
@@ -39,8 +46,8 @@ pub async fn list() -> Result<()> {
     if cfg.mcp.servers.is_empty() {
         println!("  (none configured)");
     } else {
-        for (name, _config) in &cfg.mcp.servers {
-            let status = server_status(name, true);
+        for (name, server_config) in &cfg.mcp.servers {
+            let status = server_status(name, Some(server_config));
             println!("  {:<15} {}", name, status);
         }
     }
@@ -49,7 +56,7 @@ pub async fn list() -> Result<()> {
     println!("\nAvailable:");
     for server in available_servers() {
         if !cfg.mcp.servers.contains_key(server) {
-            let status = server_status(server, false);
+            let status = server_status(server, None);
             println!("  ⬜ {:<15} {}", server, status);
         }
     }
@@ -58,7 +65,7 @@ pub async fn list() -> Result<()> {
     Ok(())
 }
 
-pub async fn add(name: &str) -> Result<()> {
+pub async fn add(name: &str, advanced: bool, vault_path: Option<&str>) -> Result<()> {
     let mut cfg = config::load();
 
     if cfg.mcp.servers.contains_key(name) {
@@ -89,8 +96,12 @@ pub async fn add(name: &str) -> Result<()> {
         return Ok(());
     }
 
+    // Special handling for obsidian
+    if name == "obsidian" {
+        return obsidian::add(&mut cfg, advanced, vault_path);
+    }
+
     let server_config = match name {
-        "obsidian" => json!({ "vault_path": "" }),
         "notion" => json!({ "api_key": "" }),
         "slack" => json!({ "bot_token": "", "channel": "" }),
         "jira" => json!({ "host": "", "api_token": "" }),
@@ -158,6 +169,11 @@ pub async fn test(name: &str) -> Result<()> {
 
         println!("\n✅ NotebookLM MCP server is ready!");
         return Ok(());
+    }
+
+    // Special handling for obsidian
+    if name == "obsidian" {
+        return obsidian::test(&cfg);
     }
 
     // Generic test for other servers
@@ -231,7 +247,7 @@ mod tests {
 
         let config_path = dir.path().join(".parrot/config.json");
         let mut cfg: ParrotConfig = serde_json::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();
-        cfg.mcp.servers.insert("obsidian".to_string(), json!({"vault_path": ""}));
+        cfg.mcp.servers.insert("obsidian".to_string(), json!({"vault_path": "/tmp/testvault", "advanced": false}));
         std::fs::write(&config_path, serde_json::to_string_pretty(&cfg).unwrap()).unwrap();
 
         let loaded: ParrotConfig = serde_json::from_str(&std::fs::read_to_string(&config_path).unwrap()).unwrap();

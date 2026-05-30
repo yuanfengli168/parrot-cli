@@ -7,23 +7,13 @@ pub async fn run(file: &str, target: &str) -> Result<()> {
     
     match target {
         "obsidian" => {
-            let vault_path = cfg.mcp.servers.get("obsidian")
-                .and_then(|v| v.get("vault_path"))
-                .and_then(|v| v.as_str())
-                .ok_or_else(|| anyhow::anyhow!("Obsidian MCP not configured. Run: parrot-cli mcp add obsidian"))?;
-            
-            let content = std::fs::read_to_string(file)?;
-            let filename = Path::new(file)
-                .file_name().unwrap().to_str().unwrap();
-            let dest = format!("{}/{}.md", vault_path.trim_end_matches('/'), filename.trim_end_matches(".txt").trim_end_matches(".md"));
-            std::fs::write(&dest, &content)?;
-            println!("✅ Exported to Obsidian: {}", dest);
+            crate::mcp::obsidian::export(file, &cfg)
         }
         "notion" => {
             anyhow::bail!("Notion export not yet implemented. MCP server integration coming soon.");
         }
         "notebooklm" => {
-            export_to_notebooklm(file)?;
+            export_to_notebooklm(file)
         }
         "slack" => {
             anyhow::bail!("Slack export not yet implemented. MCP server integration coming soon.");
@@ -32,7 +22,6 @@ pub async fn run(file: &str, target: &str) -> Result<()> {
             anyhow::bail!("Unknown export target: {}. Supported: obsidian, notion, notebooklm, slack", target);
         }
     }
-    Ok(())
 }
 
 fn export_to_notebooklm(file: &str) -> Result<()> {
