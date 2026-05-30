@@ -1,3 +1,5 @@
+pub mod notebooklm;
+
 use anyhow::Result;
 use serde_json::json;
 
@@ -6,6 +8,25 @@ use crate::config;
 // Curated MCP servers for v1
 fn available_servers() -> Vec<&'static str> {
     vec!["obsidian", "notion", "notebooklm", "slack", "jira", "diffchecker", "google-docs", "email", "github", "todoist", "confluence", "telegram"]
+}
+
+/// Get status string for a server (checks nlm for notebooklm, stub for others)
+fn server_status(name: &str, configured: bool) -> String {
+    if name == "notebooklm" {
+        if !notebooklm::is_nlm_installed() {
+            return "❌ nlm not installed (pip install notebooklm-mcp-cli)".to_string();
+        }
+        match notebooklm::is_nlm_authenticated() {
+            Ok(true) if configured => "✅ connected".to_string(),
+            Ok(true) => "✅ authenticated".to_string(),
+            Ok(false) => "⚠️  not authenticated (run: nlm login)".to_string(),
+            Err(_) => "❓ could not check auth".to_string(),
+        }
+    } else if configured {
+        "✅ configured".to_string()
+    } else {
+        "⬜ not configured".to_string()
+    }
 }
 
 pub async fn list() -> Result<()> {
@@ -19,7 +40,8 @@ pub async fn list() -> Result<()> {
         println!("  (none configured)");
     } else {
         for (name, _config) in &cfg.mcp.servers {
-            println!("  ✅ {:<15} configured", name);
+            let status = server_status(name, true);
+            println!("  {:<15} {}", name, status);
         }
     }
 
@@ -27,7 +49,8 @@ pub async fn list() -> Result<()> {
     println!("\nAvailable:");
     for server in available_servers() {
         if !cfg.mcp.servers.contains_key(server) {
-            println!("  ⬜ {}", server);
+            let status = server_status(server, false);
+            println!("  ⬜ {:<15} {}", server, status);
         }
     }
 
@@ -43,10 +66,32 @@ pub async fn add(name: &str) -> Result<()> {
         return Ok(());
     }
 
+    // Special handling for notebooklm
+    if name == "notebooklm" {
+        if !notebooklm::is_nlm_installed() {
+            println!("❌ 'nlm' CLI is not installed.");
+            println!("\nInstall it with:");
+            println!("  pip install notebooklm-mcp-cli");
+            println!("\nThen authenticate:");
+            println!("  nlm login");
+            println!("\nSee: https://github.com/jacob-bd/notebooklm-mcp-cli");
+            anyhow::bail!("nlm CLI not installed");
+        }
+        if !notebooklm::is_nlm_authenticated()? {
+            println!("⚠️  'nlm' is installed but not authenticated.");
+            println!("\nRun:");
+            println!("  nlm login");
+            anyhow::bail!("nlm not authenticated");
+        }
+        cfg.mcp.servers.insert(name.to_string(), json!({ "enabled": true }));
+        config::save(&cfg)?;
+        println!("✅ Added MCP server: {}", name);
+        return Ok(());
+    }
+
     let server_config = match name {
         "obsidian" => json!({ "vault_path": "" }),
         "notion" => json!({ "api_key": "" }),
-        "notebooklm" => json!({ "enabled": true }),
         "slack" => json!({ "bot_token": "", "channel": "" }),
         "jira" => json!({ "host": "", "api_token": "" }),
         "google-docs" => json!({ "credentials": "" }),
@@ -86,8 +131,36 @@ pub async fn test(name: &str) -> Result<()> {
         anyhow::bail!("MCP server '{}' not configured. Run: parrot-cli mcp add {}", name, name);
     }
 
-    // For now, just verify config exists
-    // Full MCP protocol testing would require spawning the server process
+    // Special handling for notebooklm
+    if name == "notebooklm" {
+        println!("🔍 Testing NotebookLM MCP server...");
+
+        if !notebooklm::is_nlm_installed() {
+            println!("❌ 'nlm' CLI is not installed.");
+            println!("\nInstall it with:");
+            println!("  pip install notebooklm-mcp-cli");
+            anyhow::bail!("nlm CLI not installed");
+        }
+        println!("  ✅ nlm CLI is installed");
+
+        match notebooklm::is_nlm_authenticated() {
+            Ok(true) => println!("  ✅ nlm is authenticated"),
+            Ok(false) => {
+                println!("  ❌ nlm is not authenticated");
+                println!("\nRun:");
+                println!("  nlm login");
+                anyhow::bail!("nlm not authenticated");
+            }
+            Err(e) => {
+                println!("  ❓ Could not check auth status: {}", e);
+            }
+        }
+
+        println!("\n✅ NotebookLM MCP server is ready!");
+        return Ok(());
+    }
+
+    // Generic test for other servers
     println!("🔍 Testing MCP server '{}'...", name);
     println!("✅ Server '{}' is configured.", name);
     println!("   Note: Full MCP protocol testing requires running the server. Coming in future release.");
