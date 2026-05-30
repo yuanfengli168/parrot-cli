@@ -91,6 +91,21 @@ whisper --help
 
 > **Note:** Parrot CLI uses `whisper` (the Python CLI) by default. If you use whisper.cpp, you'll need to configure the binary path in `~/.parrot/config.json`.
 
+### 6. NotebookLM CLI (optional, for NotebookLM export)
+
+```bash
+# Install via pip
+pip install notebooklm-mcp-cli
+
+# Authenticate with Google (opens browser)
+nlm login
+
+# Verify
+nlm login --check
+```
+
+> **Note:** Required only if you want to export meeting notes to Google NotebookLM via `parrot-cli export --to notebooklm`.
+
 ---
 
 ## Install Parrot CLI
@@ -191,7 +206,7 @@ This will:
 2. Run OCR on the frame using tesseract
 3. Save the screenshot (.png) and OCR text (.txt) to `~/.parrot/output/screenshots/`
 
-### Step 7: Generate a document
+### Step 8: Generate a document
 
 ```bash
 # NotebookLM-ready format
@@ -349,6 +364,7 @@ Parrot creates a default config on first run. You can edit it manually:
 | `llm.model` | `qwen3:14b` | Model for summaries |
 | `llm.ollama_url` | `http://localhost:11434` | Ollama server URL |
 | `output.dir` | `~/.parrot/output` | Where outputs are saved |
+| `output.screenshots_dir` | `~/.parrot/output/screenshots` | Where screenshots are saved |
 | `mcp.servers` | `{}` | Configured MCP servers |
 
 ---
@@ -362,6 +378,9 @@ Parrot creates a default config on first run. You can edit it manually:
 │   ├── whisper-medium/
 │   └── whisper-large-v3/
 └── output/              # Transcripts, summaries, docs
+    ├── screenshots/     # Extracted video frames + OCR text
+    │   ├── 2026-05-30_meeting_32-15.png
+    │   └── 2026-05-30_meeting_32-15.txt
     ├── 2026-05-30_meeting-transcript.txt
     ├── 2026-05-30_meeting-summary.txt
     └── 2026-05-30_meeting-doc.md
@@ -382,6 +401,20 @@ cat ~/.parrot/output/my-meeting-digest.md
 
 # 3. Export to your notes
 parrot-cli export my-meeting-digest.md --to obsidian
+```
+
+### Export to NotebookLM
+
+```bash
+# 1. Make sure nlm is installed and authenticated
+pip install notebooklm-mcp-cli
+nlm login
+
+# 2. Add NotebookLM as an MCP server
+parrot-cli mcp add notebooklm
+
+# 3. Export your meeting notes
+parrot-cli export my-meeting-digest.md --to notebooklm
 ```
 
 ### Using a larger model for important meetings
@@ -457,6 +490,23 @@ curl http://localhost:11434/api/tags
 
 # If not, start it
 ollama serve
+```
+
+### "nlm not found" (NotebookLM export)
+
+```bash
+# Install nlm CLI
+pip install notebooklm-mcp-cli
+
+# Authenticate
+nlm login
+```
+
+### NotebookLM authentication expired
+
+```bash
+# Re-authenticate
+nlm login
 ```
 
 ---

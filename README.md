@@ -9,16 +9,17 @@ A local-first, MCP-extensible CLI that turns meeting recordings into actionable 
 - **Action Items** — Extract who owes what by when
 - **Decisions** — Extract decisions made, stripped of discussion
 - **Follow-up** — Draft follow-up messages (Slack, email)
+- **Screenshots** — Extract video frames at timestamps with OCR text extraction
 - **Document Generation** — Structured docs for NotebookLM, Obsidian, Markdown
 - **Digest** — All-in-one: transcribe → summarize → actions → decisions → doc
 - **Model Management** — Pull, list, swap Whisper models
-- **MCP Integration** — Export to Obsidian, Notion, Slack, and more
+- **MCP Integration** — Export to Obsidian, NotebookLM, Notion, Slack, and more
 
 ## Install
 
 ```bash
 # Build from source (requires Rust)
-git clone https://github.com/jacky/parrot-cli.git
+git clone https://github.com/yuanfengli168/parrot-cli.git
 cd parrot-cli
 cargo install --path .
 ```
@@ -28,6 +29,8 @@ cargo install --path .
 - [ffmpeg](https://ffmpeg.org/) — audio extraction from video files
 - [Whisper](https://github.com/openai/whisper) — transcription (`pip install openai-whisper`)
 - [Ollama](https://ollama.ai/) — local LLM for summarization (default: qwen3:14b)
+- [Tesseract](https://github.com/tesseract-ocr/tesseract) — OCR for screenshot text extraction (optional)
+- [nlm](https://github.com/jacob-bd/notebooklm-mcp-cli) — NotebookLM integration (optional; `pip install notebooklm-mcp-cli`)
 
 ## Usage
 
@@ -46,6 +49,15 @@ parrot-cli decisions transcript.txt
 
 # Draft follow-up message
 parrot-cli followup transcript.txt --channel slack
+
+# Extract a screenshot at a timestamp
+parrot-cli screenshot meeting.mp4 "32:15"
+
+# Search transcript for a topic, then screenshot that moment
+parrot-cli screenshot meeting.mp4 --search "budget discussion"
+
+# Find a specific sentence in transcript, then screenshot
+parrot-cli screenshot meeting.mp4 --sentence "the revenue target is 5M"
 
 # Generate structured document
 parrot-cli doc transcript.txt --format notebooklm
@@ -73,14 +85,18 @@ parrot-cli model use whisper-medium
 # List MCP servers
 parrot-cli mcp list
 
-# Add a server
+# Add Obsidian (prompts for vault path)
 parrot-cli mcp add obsidian
+
+# Add NotebookLM (requires nlm CLI)
+parrot-cli mcp add notebooklm
 
 # Test connection
 parrot-cli mcp test obsidian
 
 # Export to a target
 parrot-cli export digest.md --to obsidian
+parrot-cli export digest.md --to notebooklm
 ```
 
 ## Configuration
@@ -100,10 +116,13 @@ Config file: `~/.parrot/config.json`
     "ollama_url": "http://localhost:11434"
   },
   "output": {
-    "dir": "~/.parrot/output"
+    "dir": "~/.parrot/output",
+    "screenshots_dir": "~/.parrot/output/screenshots"
   },
   "mcp": {
-    "servers": {}
+    "servers": {
+      "obsidian": { "vault_path": "/Users/jacky/MyVault" }
+    }
   }
 }
 ```

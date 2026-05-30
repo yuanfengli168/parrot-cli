@@ -14,7 +14,7 @@ Parrot is a macOS CLI tool for post-meeting processing. It transcribes audio/vid
 
 **Language:** Auto-detect (Whisper handles 99 languages).
 
-**License:** Open source (MIT or Apache 2.0 — TBD).
+**License:** MIT
 
 **Pricing:** Core CLI free + open source. Cloud transcription/API as optional paid feature.
 
@@ -374,10 +374,13 @@ parrot-cli export <file> --to google-docs     # save to Google Docs
 - Decisions
 - Follow-up draft
 - Document generation (NotebookLM format)
+- Screenshots with OCR
 - Model management with aliases
-- MCP: Obsidian, Notion, NotebookLM, Slack
+- MCP: NotebookLM (via nlm), Obsidian (direct file write)
 - `parrot-cli mcp list/add/remove/test`
 - Config file
+
+**Note:** Notion, Slack, Jira, and other MCP exports are stubs — configured in mcp list but not yet functional.
 
 ### Out (later)
 - Speaker diarization
@@ -390,7 +393,7 @@ parrot-cli export <file> --to google-docs     # save to Google Docs
 
 ## Tech Stack (Proposed)
 
-- **Language:** Rust or Go (single binary, fast, no runtime)
+- **Language:** Rust (single binary, fast, no runtime)
 - **Transcription:** whisper.cpp (C library, Metal-accelerated on Mac)
 - **LLM:** Ollama API (localhost) for summaries
 - **MCP:** MCP client protocol over stdio/SSE
