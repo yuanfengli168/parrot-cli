@@ -90,6 +90,39 @@ parrot-cli clip <file> "32:10-35:00"                    # extract segment
 parrot-cli clip <file> --search "budget discussion"      # find and extract by topic
 ```
 
+### Screenshots
+
+Extract frames from the meeting video at specific timestamps, with OCR for searchable text.
+
+```bash
+parrot-cli screenshot <file> "32:15"                          # extract frame at timestamp
+parrot-cli screenshot <file> --search "budget discussion"      # find timestamp via transcript search, then screenshot
+parrot-cli screenshot <file> --sentence "the revenue target is 5M"  # find sentence in transcript, screenshot at that time
+```
+
+**How it works:**
+1. `ffmpeg` extracts the frame at the given timestamp
+2. `tesseract` (or similar) runs OCR on the extracted frame
+3. OCR text is saved alongside the image for searchability
+4. For `--search` and `--sentence`: first searches the transcript to find the timestamp, then extracts the frame
+
+**Storage — separate files with links:**
+```
+~/.parrot/output/
+├── screenshots/
+│   ├── 2026-05-30_meeting_32-15.png
+│   ├── 2026-05-30_meeting_32-15.txt     # OCR text
+│   ├── 2026-05-30_meeting_45-02.png
+│   └── 2026-05-30_meeting_45-02.txt     # OCR text
+├── 2026-05-30_meeting-transcript.txt
+└── 2026-05-30_meeting-summary.txt
+```
+
+**Integration with other exports:**
+- **Obsidian:** `![[2026-05-30_meeting_32-15.png]]` embedded inline next to the transcript line at 32:15
+- **NotebookLM:** Import screenshot as image source alongside transcript text
+- **Future LLM search:** "find the slide about revenue" → searches OCR text → returns the right screenshot
+
 ### Diff
 
 ```bash
@@ -187,7 +220,7 @@ Available:
 | MCP Server | Use Case | Integration |
 |---|---|---|
 | **NotebookLM** | Import transcripts + summaries | jacob-bd/notebooklm-mcp-cli (pip install) — uses `nlm` CLI + MCP server |
-| **Obsidian** | Export meeting notes to Obsidian vault | TBD |
+| **Obsidian** | Export meeting notes to Obsidian vault | StevenStavrakis/obsidian-mcp (optional, for advanced features) — basic export is direct file write |
 | **Notion** | Create meeting notes pages | TBD |
 | **Slack** | Post follow-ups and summaries to channels | TBD |
 | **Jira / Linear** | Create tickets from action items | TBD |
@@ -231,6 +264,32 @@ nlm source add <notebook-id> --text "$(cat meeting-doc.md)"
 **Alternative pattern (MCP stdio):** Spawn `notebooklm-mcp` as subprocess, communicate via JSON-RPC. More complex but allows richer integration.
 
 **Fallback:** If `nlm` not installed, `parrot-cli mcp test notebooklm` tells user to install.
+
+#### Obsidian Integration Details
+
+**Chosen server:** [StevenStavrakis/obsidian-mcp](https://github.com/StevenStavrakis/obsidian-mcp) (⭐ 712) — optional for advanced features.
+
+**Two integration levels:**
+
+**Level 1 — Basic (no MCP needed):**
+Direct file write to vault directory. This covers 90% of the use case.
+- `parrot-cli mcp add obsidian` → asks for vault path, saves to config
+- `parrot-cli export <file> --to obsidian` → writes markdown file to vault with YAML frontmatter
+- Creates: `<vault>/Meetings/YYYY-MM-DD-<filename>.md`
+- Frontmatter includes: date, tags (meeting, action-item), type, source file
+- No Obsidian plugin or MCP server required
+
+**Level 2 — Advanced (with MCP):**
+Install StevenStavrakis/obsidian-mcp for search, tag management, editing existing notes.
+- `parrot-cli mcp add obsidian --advanced` → also configures npx obsidian-mcp
+- Enables: search-vault, manage-tags, edit-note, move-note
+- Requires: `npx -y obsidian-mcp <vault-path>`
+
+**Why direct file write first:**
+- Obsidian vaults are just markdown files on disk
+- No dependency on running services or plugins
+- Works even when Obsidian is closed
+- Parrot can write proper frontmatter + tags + wiki-links natively
 
 ### Export via MCP
 
@@ -302,6 +361,7 @@ parrot-cli export <file> --to google-docs     # save to Google Docs
 | 10 | **Meeting Quality Score** | Flag if meeting was productive or off-topic |
 | 11 | **MCP Export** | Push results to Obsidian, Notion, Slack, etc. |
 | 12 | **Model Management** | Pull, list, swap transcription models easily |
+| 13 | **Screenshots** | Extract frames from video at timestamps, with OCR for searchable text |
 
 ---
 
@@ -323,7 +383,6 @@ parrot-cli export <file> --to google-docs     # save to Google Docs
 - Speaker diarization
 - Real-time transcription
 - Meeting comparison/diff (v2)
-- Clip extraction (v2)
 - Meeting quality score (v2)
 - Additional MCP servers beyond v1 curated set
 
@@ -336,6 +395,8 @@ parrot-cli export <file> --to google-docs     # save to Google Docs
 - **LLM:** Ollama API (localhost) for summaries
 - **MCP:** MCP client protocol over stdio/SSE
 - **Audio extraction:** ffmpeg (pre-existing binary)
+- **Screenshot extraction:** ffmpeg (frame extraction)
+- **OCR:** tesseract (text extraction from screenshots)
 - **Config:** JSON (~/.parrot/config.json)
 
 ---
