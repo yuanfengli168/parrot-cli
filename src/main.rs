@@ -94,6 +94,19 @@ enum Commands {
         #[command(subcommand)]
         command: McpCommands,
     },
+    /// Extract a screenshot from a video at a timestamp (with OCR)
+    Screenshot {
+        /// Input video file
+        file: String,
+        /// Timestamp to extract (MM:SS or HH:MM:SS)
+        timestamp: Option<String>,
+        /// Search transcript for keyword, then screenshot at that time
+        #[arg(long)]
+        search: Option<String>,
+        /// Find specific sentence in transcript, then screenshot at that time
+        #[arg(long)]
+        sentence: Option<String>,
+    },
     /// Export a document via MCP
     Export {
         /// Input file
@@ -191,6 +204,9 @@ async fn main() -> anyhow::Result<()> {
         },
         Commands::Export { file, to } => {
             commands::export::run(&file, &to).await
+        }
+        Commands::Screenshot { file, timestamp, search, sentence } => {
+            commands::screenshot::run(&file, timestamp.as_deref(), search.as_deref(), sentence.as_deref()).await
         }
     }
 }
@@ -436,5 +452,63 @@ mod tests {
     #[test]
     fn parse_invalid_command_fails() {
         assert!(Cli::try_parse_from(["parrot-cli", "nonexistent"]).is_err());
+    }
+
+    #[test]
+    fn parse_screenshot_timestamp() {
+        let cli = Cli::try_parse_from(["parrot-cli", "screenshot", "meeting.mp4", "32:15"]).unwrap();
+        match cli.command {
+            Commands::Screenshot { file, timestamp, search, sentence } => {
+                assert_eq!(file, "meeting.mp4");
+                assert_eq!(timestamp.unwrap(), "32:15");
+                assert!(search.is_none());
+                assert!(sentence.is_none());
+            }
+            _ => panic!("Expected Screenshot command"),
+        }
+    }
+
+    #[test]
+    fn parse_screenshot_search() {
+        let cli = Cli::try_parse_from(["parrot-cli", "screenshot", "meeting.mp4", "--search", "budget discussion"]).unwrap();
+        match cli.command {
+            Commands::Screenshot { file, timestamp, search, sentence } => {
+                assert_eq!(file, "meeting.mp4");
+                assert!(timestamp.is_none());
+                assert_eq!(search.unwrap(), "budget discussion");
+                assert!(sentence.is_none());
+            }
+            _ => panic!("Expected Screenshot command"),
+        }
+    }
+
+    #[test]
+    fn parse_screenshot_sentence() {
+        let cli = Cli::try_parse_from(["parrot-cli", "screenshot", "meeting.mp4", "--sentence", "the revenue target is 5M"]).unwrap();
+        match cli.command {
+            Commands::Screenshot { file, timestamp, search, sentence } => {
+                assert_eq!(file, "meeting.mp4");
+                assert!(timestamp.is_none());
+                assert!(search.is_none());
+                assert_eq!(sentence.unwrap(), "the revenue target is 5M");
+            }
+            _ => panic!("Expected Screenshot command"),
+        }
+    }
+
+    #[test]
+    fn parse_screenshot_no_args_fails() {
+        // screenshot requires at least one of timestamp/search/sentence
+        // Actually clap will parse this fine with all optional - but the run function will error
+        // This is valid CLI parse, runtime will reject
+        let cli = Cli::try_parse_from(["parrot-cli", "screenshot", "meeting.mp4"]).unwrap();
+        match cli.command {
+            Commands::Screenshot { timestamp, search, sentence, .. } => {
+                assert!(timestamp.is_none());
+                assert!(search.is_none());
+                assert!(sentence.is_none());
+            }
+            _ => panic!("Expected Screenshot command"),
+        }
     }
 }

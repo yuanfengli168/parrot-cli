@@ -6,3 +6,4 @@ pub mod followup;
 pub mod doc;
 pub mod digest;
 pub mod export;
+pub mod screenshot;

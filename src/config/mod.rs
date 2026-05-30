@@ -56,14 +56,20 @@ impl Default for LlmConfig {
 pub struct OutputConfig {
     #[serde(default = "default_output_dir")]
     pub dir: String,
+    #[serde(default = "default_screenshots_dir")]
+    pub screenshots_dir: String,
 }
 
 fn default_output_dir() -> String {
     format!("{}/.parrot/output", std::env::var("HOME").unwrap_or_default())
 }
 
+fn default_screenshots_dir() -> String {
+    format!("{}/.parrot/output/screenshots", std::env::var("HOME").unwrap_or_default())
+}
+
 impl Default for OutputConfig {
-    fn default() -> Self { Self { dir: default_output_dir() } }
+    fn default() -> Self { Self { dir: default_output_dir(), screenshots_dir: default_screenshots_dir() } }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -102,6 +108,10 @@ pub fn models_dir() -> PathBuf {
 
 pub fn output_dir() -> PathBuf {
     PathBuf::from(load().output.dir.clone())
+}
+
+pub fn screenshots_dir() -> PathBuf {
+    PathBuf::from(load().output.screenshots_dir.clone())
 }
 
 pub fn ensure_dirs() -> anyhow::Result<()> {

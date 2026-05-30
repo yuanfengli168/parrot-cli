@@ -48,7 +48,19 @@ ollama pull qwen3:14b
 ollama list
 ```
 
-### 4. Whisper (transcription)
+### 4. Tesseract OCR (for screenshot text extraction)
+
+```bash
+# Install via Homebrew
+brew install tesseract
+
+# Verify
+tesseract --version
+```
+
+> **Note:** Tesseract is used by the `screenshot` command to extract text from video frames via OCR. It's optional — the screenshot command will warn you if it's missing.
+
+### 5. Whisper (transcription)
 
 You have two options:
 
@@ -161,7 +173,25 @@ parrot-cli followup transcript.txt --channel slack
 parrot-cli followup transcript.txt --channel email
 ```
 
-### Step 6: Generate a document
+### Step 6: Extract a screenshot
+
+```bash
+# Extract frame at a specific timestamp
+parrot-cli screenshot meeting.mp4 "32:15"
+
+# Search transcript for topic, then screenshot at that time
+parrot-cli screenshot meeting.mp4 --search "budget discussion"
+
+# Find specific sentence in transcript, screenshot at that time
+parrot-cli screenshot meeting.mp4 --sentence "the revenue target is 5M"
+```
+
+This will:
+1. Extract the video frame at the given timestamp using ffmpeg
+2. Run OCR on the frame using tesseract
+3. Save the screenshot (.png) and OCR text (.txt) to `~/.parrot/output/screenshots/`
+
+### Step 7: Generate a document
 
 ```bash
 # NotebookLM-ready format
@@ -389,6 +419,12 @@ parrot-cli digest standup.mp4 && parrot-cli followup ~/.parrot/output/standup-tr
 
 ```bash
 brew install ffmpeg
+```
+
+### "tesseract not found"
+
+```bash
+brew install tesseract
 ```
 
 ### "Ollama not running"
